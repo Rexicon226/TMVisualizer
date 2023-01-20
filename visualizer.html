@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Fly Controls</title>
+    <script src="js/three.js"></script>
+</head>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+    }
+</style>
+<body>
+<script>
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    camera.position.z = 100;
+
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+
+    let bodies = [];
+
+    let previousX = 0;
+    let previousY = 0;
+
+    function addBody(event) {
+        // Check if the event is a right-click
+        if (event.button === 0) {
+            console.log("Left click");
+            console.log(bodies);
+
+            // Calculate the speed based on the amount of drag away
+            const speedX = event.clientX - previousX;
+            const speedY = event.clientY - previousY;
+
+            // Update the previous X and Y values
+            previousX = event.clientX;
+            previousY = event.clientY;
+
+            // Create a new body
+            const body = new THREE.SphereGeometry(0.1, 32, 32);
+            const material = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const mesh = new THREE.Mesh(body, material);
+            mesh.position.set(event.clientX, event.clientY, 0);
+            mesh.velocity = new THREE.Vector3(speedX, speedY, 0);
+            scene.add(mesh);
+            bodies.push(mesh);
+        }
+    }
+
+    renderer.domElement.addEventListener('mousedown', addBody, false);
+
+    function calculateForces() {
+        for (let i = 0; i < bodies.length; i++) {
+            for (let j = i + 1; j < bodies.length; j++) {
+                const distance = bodies[i].position.distanceTo(bodies[j].position);
+                const force = (bodies[i].mass * bodies[j].mass) / (distance * distance);
+                const forceVector = bodies[j].position.clone().sub(bodies[i].position).normalize().multiplyScalar(force);
+                bodies[i].velocity.add(forceVector);
+                bodies[j].velocity.sub(forceVector);
+            }
+        }
+    }
+
+    let orbitalLines = [];
+
+    function renderOrbitalLines() {
+        // Clear any existing orbital lines
+        for (let i = 0; i < orbitalLines.length; i++) {
+            scene.remove(orbitalLines[i]);
+        }
+        orbitalLines = [];
+
+        for (let i = 0; i < bodies.length; i++) {
+            const orbitalPath = new THREE.CurvePath();
+            const body = bodies[i];
+
+            // Calculate the orbital path of the body
+            const orbitalGeometry = new THREE.Geometry();
+            for (let j = 0; j < 360; j++) {
+                const angle = j * (Math.PI / 180);
+                const x = body.position.x + (body.velocity.length() * Math.cos(angle));
+                const y = body.position.y + (body.velocity.length() * Math.sin(angle));
+                orbitalGeometry.vertices.push(new THREE.Vector3(x, y, 0));
+            }
+
+            // Create the orbital line and add it to the scene
+            let orbitalLine = new THREE.Line(orbitalGeometry, new THREE.LineBasicMaterial({ color: 0xffffff }));
+            orbitalPath.add(orbitalLine);
+            scene.add(orbitalLine);
+            orbitalLines.push(orbitalLine);
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        calculateForces(); // Function to calculate the gravitational forces
+        //renderOrbitalLines(); // Function to render the orbital prediction lines
+
+        // Update the position of each body based on its velocity
+        for (let i = 0; i < bodies.length; i++) {
+            console.log(bodies[i].position);
+            bodies[i].position.add(bodies[i].velocity);
+        }
+        camera.lookAt(bodies[0].position);
+
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+</script>
+</body>
+</html>
